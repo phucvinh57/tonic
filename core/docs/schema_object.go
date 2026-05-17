@@ -3,38 +3,14 @@ package docs
 import (
 	"fmt"
 	"maps"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-type Number struct {
-	Minimum float64 `json:"minimum,omitempty"`
-	Maximum float64 `json:"maximum,omitempty"`
-}
-
-func (n *Number) Bind(v ValidateFlag) {
-	if v.Min != "" {
-		n.Minimum, _ = strconv.ParseFloat(v.Min, 64)
-	}
-	if v.Max != "" {
-		n.Maximum, _ = strconv.ParseFloat(v.Max, 64)
-	}
-}
-
-type Integer struct {
-	Minimum int `json:"minimum,omitempty"`
-	Maximum int `json:"maximum,omitempty"`
-}
-
-func (i *Integer) Bind(v ValidateFlag) {
-	if v.Min != "" {
-		i.Minimum, _ = strconv.Atoi(v.Min)
-	}
-	if v.Max != "" {
-		i.Maximum, _ = strconv.Atoi(v.Max)
-	}
-}
+type Number struct{}
+type Integer struct{}
 
 type String struct {
 	MinLength int    `json:"minLength,omitempty"`
@@ -48,6 +24,22 @@ func (s *String) Bind(v ValidateFlag) {
 	}
 	if v.Max != "" {
 		s.MaxLength, _ = strconv.Atoi(v.Max)
+	}
+	if v.Gt != "" {
+		f, _ := strconv.ParseFloat(v.Gt, 64)
+		s.MinLength = int(math.Floor(f)) + 1
+	}
+	if v.Gte != "" {
+		f, _ := strconv.ParseFloat(v.Gte, 64)
+		s.MinLength = int(math.Ceil(f))
+	}
+	if v.Lt != "" {
+		f, _ := strconv.ParseFloat(v.Lt, 64)
+		s.MaxLength = int(math.Ceil(f)) - 1
+	}
+	if v.Lte != "" {
+		f, _ := strconv.ParseFloat(v.Lte, 64)
+		s.MaxLength = int(math.Floor(f))
 	}
 	s.Pattern = v.GetPattern()
 }
@@ -70,6 +62,22 @@ func (a *Array) Bind(v ValidateFlag) {
 	}
 	if v.Max != "" {
 		a.MaxItems, _ = strconv.Atoi(v.Max)
+	}
+	if v.Gt != "" {
+		f, _ := strconv.ParseFloat(v.Gt, 64)
+		a.MinItems = int(math.Floor(f)) + 1
+	}
+	if v.Gte != "" {
+		f, _ := strconv.ParseFloat(v.Gte, 64)
+		a.MinItems = int(math.Ceil(f))
+	}
+	if v.Lt != "" {
+		f, _ := strconv.ParseFloat(v.Lt, 64)
+		a.MaxItems = int(math.Ceil(f)) - 1
+	}
+	if v.Lte != "" {
+		f, _ := strconv.ParseFloat(v.Lte, 64)
+		a.MaxItems = int(math.Floor(f))
 	}
 }
 
@@ -95,15 +103,22 @@ type SchemaObject struct {
 	*String  `json:",inline"`
 	*Object  `json:",inline" validate:"required_if=type object"`
 	*Array   `json:",inline" validate:"required_if=type array"`
-	Enum     []any `json:"enum,omitempty" validate:"omitempty,unique"` // Enum values for string, number, integer types
+
+	Minimum          any  `json:"minimum,omitempty"`
+	Maximum          any  `json:"maximum,omitempty"`
+	ExclusiveMinimum bool `json:"exclusiveMinimum,omitempty"`
+	ExclusiveMaximum bool `json:"exclusiveMaximum,omitempty"`
+
+	Enum []any `json:"enum,omitempty" validate:"omitempty,unique"` // Enum values for string, number, integer types
 
 	AllOf []SchemaOrReference `json:"allOf,omitempty"`
 	AnyOf []SchemaOrReference `json:"anyOf,omitempty"`
 	OneOf []SchemaOrReference `json:"oneOf,omitempty"`
 
-	Description string `json:"description,omitempty"`
-	Nullable    bool   `json:"nullable,omitempty"`
-	Deprecated  bool   `json:"deprecated,omitempty"`
+	Description string        `json:"description,omitempty"`
+	Nullable    bool          `json:"nullable,omitempty"`
+	Deprecated  bool          `json:"deprecated,omitempty"`
+	Not         *SchemaObject `json:"not,omitempty"`
 
 	*ReferenceObject `json:",inline" validate:"required_without=type,exclude_with=Type"`
 }
@@ -144,34 +159,98 @@ func SchemaFromType(t reflect.Type, parsingKey string, validateKey string, flag 
 	case "integer":
 		schema.Integer = &Integer{}
 		if flag != nil {
-			schema.Integer.Bind(*flag)
+			if flag.Min != "" {
+				v, _ := strconv.Atoi(flag.Min)
+				schema.Minimum = v
+			}
+			if flag.Max != "" {
+				v, _ := strconv.Atoi(flag.Max)
+				schema.Maximum = v
+			}
+			if flag.Gt != "" {
+				v, _ := strconv.Atoi(flag.Gt)
+				schema.Minimum = v
+				schema.ExclusiveMinimum = true
+			}
+			if flag.Gte != "" {
+				v, _ := strconv.Atoi(flag.Gte)
+				schema.Minimum = v
+			}
+			if flag.Lt != "" {
+				v, _ := strconv.Atoi(flag.Lt)
+				schema.Maximum = v
+				schema.ExclusiveMaximum = true
+			}
+			if flag.Lte != "" {
+				v, _ := strconv.Atoi(flag.Lte)
+				schema.Maximum = v
+			}
 			if len(flag.Eq) > 0 || len(flag.OneOf) > 0 {
 				schema.Enum = make([]any, 0, len(flag.Eq)+len(flag.OneOf))
 				for _, val := range flag.Eq {
-					valFloat, _ := strconv.Atoi(val)
-					schema.Enum = append(schema.Enum, valFloat)
+					v, _ := strconv.Atoi(val)
+					schema.Enum = append(schema.Enum, v)
 				}
 				for _, val := range flag.OneOf {
-					valFloat, _ := strconv.Atoi(val)
-					schema.Enum = append(schema.Enum, valFloat)
+					v, _ := strconv.Atoi(val)
+					schema.Enum = append(schema.Enum, v)
 				}
+			}
+			if len(flag.Ne) > 0 {
+				notEnums := make([]any, len(flag.Ne))
+				for i, val := range flag.Ne {
+					notEnums[i], _ = strconv.Atoi(val)
+				}
+				schema.Not = &SchemaObject{Enum: notEnums}
 			}
 		}
 		schema.Format = REFLECT_TYPE_MAP[t.Kind()]
 	case "number":
 		schema.Number = &Number{}
 		if flag != nil {
-			schema.Number.Bind(*flag)
+			if flag.Min != "" {
+				v, _ := strconv.ParseFloat(flag.Min, 64)
+				schema.Minimum = v
+			}
+			if flag.Max != "" {
+				v, _ := strconv.ParseFloat(flag.Max, 64)
+				schema.Maximum = v
+			}
+			if flag.Gt != "" {
+				v, _ := strconv.ParseFloat(flag.Gt, 64)
+				schema.Minimum = v
+				schema.ExclusiveMinimum = true
+			}
+			if flag.Gte != "" {
+				v, _ := strconv.ParseFloat(flag.Gte, 64)
+				schema.Minimum = v
+			}
+			if flag.Lt != "" {
+				v, _ := strconv.ParseFloat(flag.Lt, 64)
+				schema.Maximum = v
+				schema.ExclusiveMaximum = true
+			}
+			if flag.Lte != "" {
+				v, _ := strconv.ParseFloat(flag.Lte, 64)
+				schema.Maximum = v
+			}
 			if len(flag.Eq) > 0 || len(flag.OneOf) > 0 {
 				schema.Enum = make([]any, 0, len(flag.Eq)+len(flag.OneOf))
 				for _, val := range flag.Eq {
-					valFloat, _ := strconv.ParseFloat(val, 64)
-					schema.Enum = append(schema.Enum, valFloat)
+					v, _ := strconv.ParseFloat(val, 64)
+					schema.Enum = append(schema.Enum, v)
 				}
 				for _, val := range flag.OneOf {
-					valFloat, _ := strconv.ParseFloat(val, 64)
-					schema.Enum = append(schema.Enum, valFloat)
+					v, _ := strconv.ParseFloat(val, 64)
+					schema.Enum = append(schema.Enum, v)
 				}
+			}
+			if len(flag.Ne) > 0 {
+				notEnums := make([]any, len(flag.Ne))
+				for i, val := range flag.Ne {
+					notEnums[i], _ = strconv.ParseFloat(val, 64)
+				}
+				schema.Not = &SchemaObject{Enum: notEnums}
 			}
 		}
 		schema.Format = REFLECT_TYPE_MAP[t.Kind()]
@@ -180,10 +259,11 @@ func SchemaFromType(t reflect.Type, parsingKey string, validateKey string, flag 
 		if flag != nil {
 			schema.String.Bind(*flag)
 			schema.Format = flag.GetFormat()
-			if len(flag.Eq) > 0 || len(flag.EqIgnoreCase) > 0 || len(flag.OneOf) > 0 {
-				enums := make([]string, 0, len(flag.Eq)+len(flag.EqIgnoreCase)+len(flag.OneOf))
+			if len(flag.EqIgnoreCase) > 0 {
+				schema.String.Pattern = "^(?i)(" + strings.Join(flag.EqIgnoreCase, "|") + ")$"
+			} else if len(flag.Eq) > 0 || len(flag.OneOf) > 0 {
+				enums := make([]string, 0, len(flag.Eq)+len(flag.OneOf))
 				enums = append(enums, flag.Eq...)
-				enums = append(enums, flag.EqIgnoreCase...)
 				enums = append(enums, flag.OneOf...)
 				a := make([]any, len(enums))
 				for i, v := range enums {
@@ -191,11 +271,32 @@ func SchemaFromType(t reflect.Type, parsingKey string, validateKey string, flag 
 				}
 				schema.Enum = a
 			}
+			if len(flag.NeIgnoreCase) > 0 {
+				schema.Not = &SchemaObject{
+					String: &String{Pattern: "^(?i)(" + strings.Join(flag.NeIgnoreCase, "|") + ")$"},
+				}
+			} else if len(flag.Ne) > 0 {
+				notEnums := make([]any, len(flag.Ne))
+				for i, v := range flag.Ne {
+					notEnums[i] = v
+				}
+				schema.Not = &SchemaObject{Enum: notEnums}
+			}
 		}
 	case "boolean":
-		schema.Enum = make([]any, 0, 2)
 		if flag != nil {
-			if len(flag.Eq) > 0 {
+			if len(flag.Ne) > 0 {
+				notEnums := make([]any, len(flag.Ne))
+				for i, v := range flag.Ne {
+					b, err := strconv.ParseBool(v)
+					if err != nil {
+						return schema, fmt.Errorf("invalid boolean value: %s", v)
+					}
+					notEnums[i] = b
+				}
+				schema.Not = &SchemaObject{Enum: notEnums}
+			} else if len(flag.Eq) > 0 {
+				schema.Enum = make([]any, 0, len(flag.Eq))
 				for _, v := range flag.Eq {
 					b, err := strconv.ParseBool(v)
 					if err != nil {
@@ -217,6 +318,12 @@ func SchemaFromType(t reflect.Type, parsingKey string, validateKey string, flag 
 		}
 		if flag != nil {
 			schema.Array.Bind(*flag)
+			if len(flag.Ne) > 0 && len(flag.Ne) == 1 {
+				neVal, _ := strconv.Atoi(flag.Ne[0])
+				schema.Not = &SchemaObject{
+					Array: &Array{MinItems: neVal, MaxItems: neVal},
+				}
+			}
 		}
 	case "object":
 		schema.Object = &Object{
