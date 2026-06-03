@@ -2,15 +2,19 @@ package main
 
 import (
 	m "gin_example/middlewares"
+	"log"
 	"net/http"
 
-	ginAdapter "github.com/TickLabVN/tonic/adapters/gin"
+	gtonic "github.com/TickLabVN/tonic/adapters/gin"
 	"github.com/TickLabVN/tonic/core/docs"
 	"github.com/gin-gonic/gin"
 )
 
 type GetUserRequest struct {
-	ID string `uri:"id" binding:"required"`
+	ID             string `uri:"id" binding:"required,uuid4"`
+	IncludeOrders  bool   `form:"includeOrders"`
+	IncludeMetrics bool   `form:"includeMetrics"`
+	APIKey         string `header:"x-api-key" binding:"required,min=10"`
 }
 
 type User struct {
@@ -19,39 +23,121 @@ type User struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
-func Bind[D any, R any](c *gin.Context) (D, error) {
-	var req D
-	if err := c.ShouldBind(&req); err != nil {
-		return req, err
-	}
-	return req, nil
+type CreateUserRequest struct {
+	Name      string `json:"name" binding:"required,min=2,max=60"`
+	Email     string `json:"email" binding:"required,email"`
+	Role      string `json:"role" binding:"required,oneof=admin manager member"`
+	Invite    bool   `json:"invite"`
+	RequestID string `header:"x-request-id" binding:"required,uuid4"`
 }
 
-func GetUserById(c *gin.Context) {
-	var req GetUserRequest
-	if err := c.BindUri(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	user := User{ID: req.ID, Name: "John Doe", Email: "john.doe@example.com"}
-	c.JSON(http.StatusOK, user)
+type UpdateUserSettingsRequest struct {
+	ID             string `uri:"id" binding:"required,uuid4"`
+	DryRun         bool   `form:"dryRun"`
+	RequestID      string `header:"x-request-id" binding:"required,uuid4"`
+	DisplayName    string `json:"displayName" binding:"required,min=2,max=50"`
+	Timezone       string `json:"timezone" binding:"required"`
+	MarketingOptIn bool   `json:"marketingOptIn"`
 }
 
-func CreateUser(c *gin.Context) {
-	var user User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+type ListUserOrdersRequest struct {
+	ID       string `uri:"id" binding:"required,uuid4"`
+	Limit    int    `form:"limit" binding:"omitempty,min=1,max=100"`
+	Cursor   string `form:"cursor"`
+	Region   string `header:"x-region" binding:"required,oneof=apac emea us"`
+	Statuses string `form:"statuses"`
+}
+
+type UserDetailsResponse struct {
+	User
+	Segments []string `json:"segments"`
+}
+
+type UserCreatedResponse struct {
+	User
+	Invited bool `json:"invited"`
+}
+
+type UserSettingsResponse struct {
+	UserID         string `json:"userId"`
+	DisplayName    string `json:"displayName"`
+	Timezone       string `json:"timezone"`
+	MarketingOptIn bool   `json:"marketingOptIn"`
+	DryRun         bool   `json:"dryRun"`
+}
+
+type OrderSummary struct {
+	ID       string  `json:"id"`
+	Status   string  `json:"status"`
+	Currency string  `json:"currency"`
+	Total    float64 `json:"total"`
+}
+
+type OrderListResponse struct {
+	UserID     string         `json:"userId"`
+	NextCursor string         `json:"nextCursor"`
+	Orders     []OrderSummary `json:"orders"`
+}
+
+func getUserByID(c *gin.Context) {
+	data := c.MustGet("data").(GetUserRequest)
+	segments := []string{"starter", "beta"}
+	if data.IncludeMetrics {
+		segments = append(segments, "usage-insights")
 	}
-	user.ID = "3" // Simulate ID generation
-	c.JSON(http.StatusCreated, user)
+	c.JSON(http.StatusOK, UserDetailsResponse{
+		User: User{
+			ID:    data.ID,
+			Name:  "John Doe",
+			Email: "john.doe@example.com",
+		},
+		Segments: segments,
+	})
+}
+
+func createUser(c *gin.Context) {
+	data := c.MustGet("data").(CreateUserRequest)
+	c.JSON(http.StatusCreated, UserCreatedResponse{
+		User: User{
+			ID:    "7f4d8a3f-3f3e-4a58-a9f0-1b0e1776b001",
+			Name:  data.Name,
+			Email: data.Email,
+		},
+		Invited: data.Invite,
+	})
+}
+
+func updateUserSettings(c *gin.Context) {
+	data := c.MustGet("data").(UpdateUserSettingsRequest)
+	c.JSON(http.StatusOK, UserSettingsResponse{
+		UserID:         data.ID,
+		DisplayName:    data.DisplayName,
+		Timezone:       data.Timezone,
+		MarketingOptIn: data.MarketingOptIn,
+		DryRun:         data.DryRun,
+	})
+}
+
+func listUserOrders(c *gin.Context) {
+	data := c.MustGet("data").(ListUserOrdersRequest)
+	c.JSON(http.StatusOK, OrderListResponse{
+		UserID:     data.ID,
+		NextCursor: "cursor:page:2",
+		Orders: []OrderSummary{
+			{ID: "ord_1001", Status: "paid", Currency: "USD", Total: 129.5},
+			{ID: "ord_1002", Status: "pending", Currency: "USD", Total: 42.0},
+		},
+	})
 }
 
 func main() {
-	// gin.SetMode(gin.ReleaseMode) // Set Gin to release mode for production
+	gin.SetMode(gin.ReleaseMode) // Set Gin to release mode for production
 	g := gin.Default()
-	openApi := &docs.OpenApi{
-		OpenAPI: "3.0.1",
+	if err := g.SetTrustedProxies(nil); err != nil {
+		log.Fatalf("configure trusted proxies: %v", err)
+	}
+	schema := gtonic.New(&docs.OpenApi{
+		OpenAPI: docs.VERSION,
 		Info: docs.InfoObject{
 			Version: "1.0.0",
 			Title:   "Echo Example API",
@@ -61,18 +147,34 @@ func main() {
 				Email: "npvinh0507@gmail.com",
 			},
 		},
-	}
-	ug := g.Group("/users")
-	ginAdapter.AddRoute[GetUserRequest, User](openApi, ug, ginAdapter.Route{
-		Method:   http.MethodGet,
-		Path:     "/:id",
-		Handlers: []gin.HandlerFunc{m.Bind[GetUserRequest], GetUserById},
 	})
-	ginAdapter.AddRoute[User, User](openApi, ug, ginAdapter.Route{
-		Method:   http.MethodPost,
-		Path:     "/",
-		Handlers: []gin.HandlerFunc{m.Bind[User], CreateUser},
-	})
+	api := g.Group("/api/v1")
+	ug := api.Group("/users")
+	gtonic.For[GetUserRequest, UserDetailsResponse](schema).
+		GET(ug, "/:id", m.Bind[GetUserRequest], getUserByID, gtonic.WithOperation(docs.OperationObject{
+			Summary:     "Get a user profile",
+			Description: "Returns a user profile with optional segments and relationship toggles.",
+			Tags:        []string{"Users"},
+		}))
+	gtonic.For[CreateUserRequest, UserCreatedResponse](schema).
+		POST(ug, "/", m.Bind[CreateUserRequest], createUser, gtonic.WithOperation(docs.OperationObject{
+			Summary:     "Create a user",
+			Description: "Creates a new user and optionally triggers an invite flow.",
+			Tags:        []string{"Users"},
+		}))
+	gtonic.For[UpdateUserSettingsRequest, UserSettingsResponse](schema).
+		PATCH(ug, "/:id/settings", m.Bind[UpdateUserSettingsRequest], updateUserSettings, gtonic.WithOperation(docs.OperationObject{
+			Summary:     "Update user settings",
+			Description: "Demonstrates path, query, header, and JSON body binding in one operation.",
+			Tags:        []string{"Users", "Settings"},
+		}))
+	gtonic.For[ListUserOrdersRequest, OrderListResponse](schema).
+		GET(ug, "/:id/orders", m.Bind[ListUserOrdersRequest], listUserOrders, gtonic.WithOperation(docs.OperationObject{
+			Summary:     "List user orders",
+			Description: "Shows filtered collections with pagination and regional headers.",
+			Tags:        []string{"Orders"},
+		}))
+	schema.UIHandle(g, "/docs")
 
 	g.Run(":1234")
 }

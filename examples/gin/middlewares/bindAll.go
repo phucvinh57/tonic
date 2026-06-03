@@ -18,6 +18,11 @@ func Bind[T any](c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid query/form", "detail": err.Error()})
 		return
 	}
+	// Headers
+	if err := c.ShouldBindHeader(&req); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid headers", "detail": err.Error()})
+		return
+	}
 	// JSON
 	if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut || c.Request.Method == http.MethodPatch {
 		if err := c.ShouldBindJSON(&req); err != nil {
