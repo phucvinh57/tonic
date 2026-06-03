@@ -4,87 +4,316 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
+	"github.com/TickLabVN/tonic/core/adapterutil"
 	"github.com/TickLabVN/tonic/core/docs"
 	"github.com/TickLabVN/tonic/core/utils"
 	"github.com/gin-gonic/gin"
 )
 
-type Route struct {
-	Method   string
-	Path     string
-	Handlers []gin.HandlerFunc
-	opts     []docs.OperationObject
+type Adapter struct {
+	spec *docs.OpenApi
 }
 
-func AddRoute[D any, R any](spec *docs.OpenApi, g gin.IRoutes, route Route) {
-	_, resp := reflect.TypeOf(new(D)), reflect.TypeOf(new(R))
-	parsingKey := "json"
-	spec.Components.AddSchema(resp, parsingKey, "binding")
+type TypedAdapter[D any, R any] struct {
+	base *Adapter
+}
 
-	var basePath string
-	group, ok := g.(*gin.RouterGroup)
-	if ok {
-		basePath = group.BasePath()
-	} else {
-		engine, ok := g.(*gin.Engine)
-		if ok {
-			basePath = engine.BasePath()
-		} else {
-			panic("Invalid gin.IRoutes type, expected *gin.RouterGroup or *gin.Engine")
+type Option func(*routeConfig)
+
+type routeConfig struct {
+	operations []docs.OperationObject
+}
+
+type BindingOptions struct {
+	Path   bool
+	Query  bool
+	Header bool
+	Body   bool
+}
+
+type methodAdapter struct {
+	register   func(g gin.IRoutes, path string, handlers []gin.HandlerFunc)
+	assign     func(item *docs.PathItemObject, op *docs.OperationObject)
+	allowsBody bool
+}
+
+type parameterBinding struct {
+	enabled      bool
+	parsingKey   string
+	location     string
+	suffix       string
+	validatePath bool
+}
+
+var methodAdapters = map[string]methodAdapter{
+	http.MethodGet: {
+		register: func(g gin.IRoutes, path string, handlers []gin.HandlerFunc) { g.GET(path, handlers...) },
+		assign:   func(item *docs.PathItemObject, op *docs.OperationObject) { item.Get = op },
+	},
+	http.MethodPost: {
+		register:   func(g gin.IRoutes, path string, handlers []gin.HandlerFunc) { g.POST(path, handlers...) },
+		assign:     func(item *docs.PathItemObject, op *docs.OperationObject) { item.Post = op },
+		allowsBody: true,
+	},
+	http.MethodPut: {
+		register:   func(g gin.IRoutes, path string, handlers []gin.HandlerFunc) { g.PUT(path, handlers...) },
+		assign:     func(item *docs.PathItemObject, op *docs.OperationObject) { item.Put = op },
+		allowsBody: true,
+	},
+	http.MethodPatch: {
+		register:   func(g gin.IRoutes, path string, handlers []gin.HandlerFunc) { g.PATCH(path, handlers...) },
+		assign:     func(item *docs.PathItemObject, op *docs.OperationObject) { item.Patch = op },
+		allowsBody: true,
+	},
+	http.MethodDelete: {
+		register: func(g gin.IRoutes, path string, handlers []gin.HandlerFunc) { g.DELETE(path, handlers...) },
+		assign:   func(item *docs.PathItemObject, op *docs.OperationObject) { item.Delete = op },
+	},
+	http.MethodOptions: {
+		register: func(g gin.IRoutes, path string, handlers []gin.HandlerFunc) { g.OPTIONS(path, handlers...) },
+		assign:   func(item *docs.PathItemObject, op *docs.OperationObject) { item.Options = op },
+	},
+	http.MethodHead: {
+		register: func(g gin.IRoutes, path string, handlers []gin.HandlerFunc) { g.HEAD(path, handlers...) },
+		assign:   func(item *docs.PathItemObject, op *docs.OperationObject) { item.Head = op },
+	},
+}
+
+func New(spec *docs.OpenApi) *Adapter {
+	return &Adapter{spec: spec}
+}
+
+func For[D any, R any](adapter *Adapter) TypedAdapter[D, R] {
+	return TypedAdapter[D, R]{base: adapter}
+}
+
+func WithOperation(op docs.OperationObject) Option {
+	return func(cfg *routeConfig) {
+		cfg.operations = append(cfg.operations, op)
+	}
+}
+
+func WithOperations(ops ...docs.OperationObject) Option {
+	return func(cfg *routeConfig) {
+		cfg.operations = append(cfg.operations, ops...)
+	}
+}
+
+func GET[D any, R any](spec *docs.OpenApi, g gin.IRoutes, path string, args ...any) {
+	For[D, R](New(spec)).GET(g, path, args...)
+}
+
+func POST[D any, R any](spec *docs.OpenApi, g gin.IRoutes, path string, args ...any) {
+	For[D, R](New(spec)).POST(g, path, args...)
+}
+
+func PUT[D any, R any](spec *docs.OpenApi, g gin.IRoutes, path string, args ...any) {
+	For[D, R](New(spec)).PUT(g, path, args...)
+}
+
+func PATCH[D any, R any](spec *docs.OpenApi, g gin.IRoutes, path string, args ...any) {
+	For[D, R](New(spec)).PATCH(g, path, args...)
+}
+
+func DELETE[D any, R any](spec *docs.OpenApi, g gin.IRoutes, path string, args ...any) {
+	For[D, R](New(spec)).DELETE(g, path, args...)
+}
+
+func OPTIONS[D any, R any](spec *docs.OpenApi, g gin.IRoutes, path string, args ...any) {
+	For[D, R](New(spec)).OPTIONS(g, path, args...)
+}
+
+func HEAD[D any, R any](spec *docs.OpenApi, g gin.IRoutes, path string, args ...any) {
+	For[D, R](New(spec)).HEAD(g, path, args...)
+}
+
+func (a TypedAdapter[D, R]) GET(g gin.IRoutes, path string, args ...any) {
+	a.registerAndDocument(http.MethodGet, g, path, args...)
+}
+
+func (a TypedAdapter[D, R]) POST(g gin.IRoutes, path string, args ...any) {
+	a.registerAndDocument(http.MethodPost, g, path, args...)
+}
+
+func (a TypedAdapter[D, R]) PUT(g gin.IRoutes, path string, args ...any) {
+	a.registerAndDocument(http.MethodPut, g, path, args...)
+}
+
+func (a TypedAdapter[D, R]) PATCH(g gin.IRoutes, path string, args ...any) {
+	a.registerAndDocument(http.MethodPatch, g, path, args...)
+}
+
+func (a TypedAdapter[D, R]) DELETE(g gin.IRoutes, path string, args ...any) {
+	a.registerAndDocument(http.MethodDelete, g, path, args...)
+}
+
+func (a TypedAdapter[D, R]) OPTIONS(g gin.IRoutes, path string, args ...any) {
+	a.registerAndDocument(http.MethodOptions, g, path, args...)
+}
+
+func (a TypedAdapter[D, R]) HEAD(g gin.IRoutes, path string, args ...any) {
+	a.registerAndDocument(http.MethodHead, g, path, args...)
+}
+
+func getParsingOptions(t reflect.Type) BindingOptions {
+	opts := BindingOptions{}
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return opts
+	}
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		opts.Path = opts.Path || field.Tag.Get("uri") != ""
+		opts.Query = opts.Query || field.Tag.Get("form") != ""
+		opts.Header = opts.Header || field.Tag.Get("header") != ""
+		opts.Body = opts.Body || field.Tag.Get("json") != ""
+	}
+	return opts
+}
+
+func parseArgs(method string, path string, args []any) ([]gin.HandlerFunc, []Option, bool) {
+	handlers := make([]gin.HandlerFunc, 0)
+	options := make([]Option, 0)
+	seenOption := false
+
+	for _, arg := range args {
+		if !seenOption {
+			if handler, ok := arg.(gin.HandlerFunc); ok {
+				handlers = append(handlers, handler)
+				continue
+			}
+			if handler, ok := arg.(func(*gin.Context)); ok {
+				handlers = append(handlers, gin.HandlerFunc(handler))
+				continue
+			}
+		}
+
+		option, ok := arg.(Option)
+		if !ok {
+			adapterutil.Warn("skipping route %s %s: invalid helper argument of type %T", method, path, arg)
+			return nil, nil, false
+		}
+		seenOption = true
+		options = append(options, option)
+	}
+
+	if len(handlers) == 0 {
+		adapterutil.Warn("skipping route %s %s: no handlers provided", method, path)
+		return nil, nil, false
+	}
+
+	return handlers, options, true
+}
+
+func (a TypedAdapter[D, R]) registerAndDocument(method string, g gin.IRoutes, path string, args ...any) {
+	spec := a.base.spec
+	methodCfg, ok := methodAdapters[method]
+	if !ok {
+		adapterutil.Warn("skipping docs and route registration for %s %s: unsupported HTTP method", method, path)
+		return
+	}
+
+	handlers, options, ok := parseArgs(method, path, args)
+	if !ok {
+		return
+	}
+	methodCfg.register(g, path, handlers)
+
+	routeTypes := adapterutil.NewRouteTypes[D, R]()
+	input, resp := routeTypes.Request, routeTypes.Response
+	if _, err := spec.Components.AddSchema(resp, "json", "binding"); err != nil {
+		adapterutil.Warn("skipping docs for %s %s: add response schema: %v", method, path, err)
+		return
+	}
+
+	basePath, ok := getBasePath(g)
+	if !ok {
+		adapterutil.Warn("skipping docs for %s %s: unsupported gin.IRoutes type %T", method, path, g)
+		return
+	}
+
+	normalizedPath := utils.NormalizeAPIPath(joinPaths(basePath, path))
+	schemaBasePath := utils.GetSchemaPath(input)
+	op := docs.OperationObject{
+		OperationId: fmt.Sprintf("%s_%s", method, normalizedPath),
+	}
+
+	parsingOpts := getParsingOptions(input)
+	bindings := []parameterBinding{
+		{enabled: parsingOpts.Path, parsingKey: "uri", location: "path", suffix: "_uri", validatePath: true},
+		{enabled: parsingOpts.Query, parsingKey: "form", location: "query", suffix: "_form"},
+		{enabled: parsingOpts.Header, parsingKey: "header", location: "header", suffix: "_header"},
+	}
+	for _, binding := range bindings {
+		if !binding.enabled {
+			continue
+		}
+		schema, err := spec.Components.AddSchema(input, binding.parsingKey, "binding")
+		if err != nil {
+			adapterutil.Warn("skipping docs for %s %s: add %s schema: %v", method, path, binding.location, err)
+			return
+		}
+		if binding.validatePath {
+			if err := adapterutil.ValidatePathParametersMatch(normalizedPath, schema); err != nil {
+				adapterutil.Warn("skipping docs for %s %s: %v", method, path, err)
+				return
+			}
+		}
+		op.AddParameter(binding.location, schema, schemaBasePath+binding.suffix)
+	}
+
+	if parsingOpts.Body && methodCfg.allowsBody {
+		if _, err := spec.Components.AddSchema(input, "json", "binding"); err != nil {
+			adapterutil.Warn("skipping docs for %s %s: add body schema: %v", method, path, err)
+			return
+		}
+		op.RequestBody = &docs.RequestBodyOrReference{
+			RequestBodyObject: &docs.RequestBodyObject{
+				Content: map[string]docs.MediaTypeOrReference{
+					"application/json": docs.JSONSchemaRef(schemaBasePath + "_json"),
+				},
+			},
 		}
 	}
 
-	baseOp := utils.MergeStructs(route.opts...)
-	path := fmt.Sprintf("%s%s", basePath, route.Path)
+	cfg := routeConfig{}
+	for _, option := range options {
+		option(&cfg)
+	}
 
-	op := utils.MergeStructs(baseOp, docs.OperationObject{
-		OperationId: fmt.Sprintf("%s_%s", route.Method, path),
-		// Parameters:  docs.GetParametersFromType(input),
+	op = utils.MergeStructs(op, docs.OperationObject{
 		Responses: map[string]docs.ResponseOrReference{
-			"200": {
-				ResponseObject: &docs.ResponseObject{
-					Content: map[string]docs.MediaTypeObject{
-						"application/json": {
-							Schema: &docs.SchemaOrReference{
-								ReferenceObject: &docs.ReferenceObject{
-									Ref: fmt.Sprintf("%s_%s", utils.GetSchemaPath(resp), parsingKey),
-								},
-							},
-						},
-					},
-				},
-			},
+			"200": docs.JSONResponse(200, utils.GetSchemaPath(resp)+"_json"),
 		},
 	})
+	op = utils.MergeStructs(append([]docs.OperationObject{op}, cfg.operations...)...)
+
 	if spec.Paths == nil {
 		spec.Paths = make(docs.Paths)
 	}
 	pathItem := docs.PathItemObject{}
-	switch route.Method {
-	case http.MethodGet:
-		g.GET(route.Path, route.Handlers...)
-		pathItem.Get = &op
-	case http.MethodPost:
-		g.POST(route.Path, route.Handlers...)
-		pathItem.Post = &op
-	case http.MethodPut:
-		g.PUT(route.Path, route.Handlers...)
-		pathItem.Put = &op
-	case http.MethodPatch:
-		g.PATCH(route.Path, route.Handlers...)
-		pathItem.Patch = &op
-	case http.MethodDelete:
-		g.DELETE(route.Path, route.Handlers...)
-		pathItem.Delete = &op
-	case http.MethodOptions:
-		g.OPTIONS(route.Path, route.Handlers...)
-		pathItem.Options = &op
-	case http.MethodHead:
-		g.HEAD(route.Path, route.Handlers...)
-		pathItem.Head = &op
-	default:
-		fmt.Printf("Unsupported HTTP method: %s\n", route.Method)
+	methodCfg.assign(&pathItem, &op)
+	spec.Paths.Update(normalizedPath, pathItem)
+}
+
+func getBasePath(g gin.IRoutes) (string, bool) {
+	if group, ok := g.(*gin.RouterGroup); ok {
+		return group.BasePath(), true
 	}
-	spec.Paths.Update(path, pathItem)
+	if engine, ok := g.(*gin.Engine); ok {
+		return engine.BasePath(), true
+	}
+	return "", false
+}
+
+func joinPaths(basePath string, path string) string {
+	basePath = strings.TrimSuffix(basePath, "/")
+	if basePath == "" {
+		return path
+	}
+	return basePath + path
 }
