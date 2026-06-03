@@ -152,7 +152,7 @@ func TestValidate_Comparision(t *testing.T) {
 					"format": "int32",
 					"maximum": 21,
 					"exclusiveMaximum": true
-				},u
+				},
 				"name": {
 					"type": "string",
 					"maxLength": 4
@@ -191,7 +191,7 @@ func TestValidate_Comparision(t *testing.T) {
 				},
 				"name": {
 					"type": "string",
-					"maxLength": 6
+					"maxLength": 5
 				},
 				"recoverEmails": {
 					"type": "array",
@@ -235,7 +235,7 @@ func TestValidate_Comparision(t *testing.T) {
 				},
 				"score": {
 					"type": "number",
-					"format": "double",
+					"format": "float64",
 					"not": { "enum": [3.14] }
 				},
 				"recoverEmails": {
