@@ -68,10 +68,10 @@ type ValidateFlag struct {
 	Excludes        []string `json:"excludes"`
 	ExcludesAll     []string `json:"excludesall"`
 	ExcludesRune    []string `json:"excludesrune"`
-	Lowercase       []string `json:"lowercase"`
-	Multibyte       []string `json:"multibyte"`
-	Number          []string `json:"number"`
-	Numeric         []string `json:"numeric"`
+	Lowercase       bool     `json:"lowercase"`
+	Multibyte       bool     `json:"multibyte"`
+	Number          bool     `json:"number"`
+	Numeric         bool     `json:"numeric"`
 	PrintASCII      bool     `json:"printascii"`
 	StartsNotWith   []string `json:"startsnotwith"`
 	StartsWith      []string `json:"startswith"`
@@ -186,6 +186,43 @@ type ComparisonFlag struct {
 }
 
 func (v *ValidateFlag) GetFormat() string {
+	if v.Alpha {
+		return "alpha"
+	}
+	if v.Alphanum {
+		return "alphanum"
+	}
+	if v.AlphanumUnicode {
+		return "alphanum_unicode"
+	}
+	if v.AlphaUnicode {
+		return "alpha_unicode"
+	}
+	if v.ASCII {
+		return "ascii"
+	}
+	if v.Boolean {
+		return "boolean"
+	}
+	if v.Number {
+		return "number"
+	}
+	if v.Numeric {
+		return "numeric"
+	}
+	if v.PrintASCII {
+		return "print_ascii"
+	}
+	if v.Uppercase {
+		return "uppercase"
+	}
+	if v.Lowercase {
+		return "lowercase"
+	}
+	if v.Multibyte {
+		return "multibyte"
+	}
+
 	if v.Base64 {
 		return "base64"
 	}
@@ -390,7 +427,7 @@ func (v *ValidateFlag) GetFormat() string {
 		return "cidrv6"
 	}
 	if v.DataURI {
-		return "datauri"
+		return "data-uri"
 	}
 	if v.Fqdn {
 		return "fqdn"
@@ -399,22 +436,22 @@ func (v *ValidateFlag) GetFormat() string {
 		return "hostname"
 	}
 	if v.HostnamePort {
-		return "hostname_port"
+		return "hostname-port"
 	}
 	if v.HostnameRfc1123 {
-		return "hostname_rfc1123"
+		return "hostname-rfc1123"
 	}
 	if v.IP {
 		return "ip"
 	}
 	if v.IP4Addr {
-		return "ip4_addr"
+		return "ipv4"
 	}
 	if v.IP6Addr {
-		return "ip6_addr"
+		return "ipv6"
 	}
 	if v.IPAddr {
-		return "ip_addr"
+		return "ip"
 	}
 	if v.IPv4 {
 		return "ipv4"
@@ -426,25 +463,25 @@ func (v *ValidateFlag) GetFormat() string {
 		return "mac"
 	}
 	if v.TCP4Addr {
-		return "tcp4_addr"
+		return "tcp4-addr"
 	}
 	if v.TCP6Addr {
-		return "tcp6_addr"
+		return "tcp6-addr"
 	}
 	if v.TCPAddr {
-		return "tcp_addr"
+		return "tcp-addr"
 	}
 	if v.UDP4Addr {
-		return "udp4_addr"
+		return "udp4-addr"
 	}
 	if v.UDP6Addr {
-		return "udp6_addr"
+		return "udp6-addr"
 	}
 	if v.UDPAddr {
-		return "udp_addr"
+		return "udp-addr"
 	}
 	if v.UnixAddr {
-		return "unix_addr"
+		return "unix-addr"
 	}
 	if v.URI {
 		return "uri"
@@ -453,13 +490,13 @@ func (v *ValidateFlag) GetFormat() string {
 		return "url"
 	}
 	if v.HTTPURL {
-		return "http_url"
+		return "http-url"
 	}
 	if v.URLEncoded {
-		return "url_encoded"
+		return "url-encoded"
 	}
 	if v.URNRfc2141 {
-		return "urn_rfc2141"
+		return "urn-rfc2141"
 	}
 
 	return ""
@@ -467,72 +504,179 @@ func (v *ValidateFlag) GetFormat() string {
 
 func (v *ValidateFlag) GetPattern() string {
 	if v.Alpha {
-		return "^[a-zA-Z]+$"
+		return "^[a-zA-Z]*$"
 	}
 	if v.Alphanum {
-		return "^[a-zA-Z0-9]+$"
+		return "^[a-zA-Z0-9]*$"
 	}
 	if v.AlphanumUnicode {
-		return "^[\\p{L}\\p{N}]+$"
+		return "^[\\p{L}0-9]*$"
 	}
 	if v.AlphaUnicode {
-		return "^[\\p{L}]+$"
+		return "^[\\p{L}]*$"
 	}
 	if v.ASCII {
-		return "^[\\x00-\\x7F]+$"
-	}
-	if v.Boolean {
-		return "^(true|false)$"
+		return "^[\\x00-\\x7F]*$"
 	}
 	if len(v.Contains) > 0 {
-		return "^.*(" + strings.Join(v.Contains, "|") + ").*$"
+		return ".*" + strings.Join(v.Contains, " ") + ".*"
 	}
 	if len(v.ContainsAny) > 0 {
-		return "^.*(" + strings.Join(v.ContainsAny, "|") + ").*$"
+		return ".*[" + strings.Join(v.ContainsAny, " ") + "].*"
 	}
 	if len(v.ContainsRune) > 0 {
-		return "^.*(" + strings.Join(v.ContainsRune, "|") + ").*$"
-	}
-	if len(v.EndsNotWith) > 0 {
-		return ".*(?<!(" + strings.Join(v.EndsNotWith, "|") + "))$"
+		return ".*" + strings.Join(v.ContainsRune, "") + ".*"
 	}
 	if len(v.EndsWith) > 0 {
-		return ".*(" + strings.Join(v.EndsWith, "|") + ")$"
+		return ".*" + strings.Join(v.EndsWith, "|") + "$"
 	}
-	if len(v.Excludes) > 0 {
-		return "^(?!.*(" + strings.Join(v.Excludes, "|") + ")).*$"
+	if v.Lowercase {
+		return "^[a-z]*$"
 	}
-	if len(v.ExcludesAll) > 0 {
-		return "^(?!.*(" + strings.Join(v.ExcludesAll, "|") + ")).*$"
+	if v.Multibyte {
+		return "^[\\p{L}0-9]*$"
 	}
-	if len(v.ExcludesRune) > 0 {
-		return "^(?!.*(" + strings.Join(v.ExcludesRune, "|") + ")).*$"
+	if v.Number {
+		return "^[0-9]*$"
 	}
-	if len(v.Lowercase) > 0 {
-		return "^[a-z]+$"
-	}
-	if len(v.Multibyte) > 0 {
-		return "^[^\\x00-\\x7F]+$"
-	}
-	if len(v.Number) > 0 {
-		return "^[+-]?\\d+(\\.\\d+)?$"
-	}
-	if len(v.Numeric) > 0 {
-		return "^[+-]?\\d+$"
+	if v.Numeric {
+		return "^[0-9]*$"
 	}
 	if v.PrintASCII {
-		return "^[\\x20-\\x7E]+$"
-	}
-	if len(v.StartsNotWith) > 0 {
-		return "^(?!(" + strings.Join(v.StartsNotWith, "|") + ")).*"
+		return "^[\\x20-\\x7E]*$"
 	}
 	if len(v.StartsWith) > 0 {
-		return "^(" + strings.Join(v.StartsWith, "|") + ").*"
+		return "^" + strings.Join(v.StartsWith, "|") + ".*"
 	}
 	if v.Uppercase {
-		return "^[A-Z]+$"
+		return "^[A-Z]*$"
 	}
 	return ""
+}
+
+func (v *ValidateFlag) GetDescription() string {
+	if len(v.Contains) > 0 {
+		return "Contain '" + strings.Join(v.Contains, " ") + "'"
+	}
+	if len(v.ContainsAny) > 0 {
+		return "Contain any chars in '" + strings.Join(v.ContainsAny, " ") + "'"
+	}
+	if len(v.ContainsRune) > 0 {
+		return "Contain '" + strings.Join(v.ContainsRune, "") + "'"
+	}
+	if len(v.EndsNotWith) > 0 {
+		return "Not end with '" + strings.Join(v.EndsNotWith, " ") + "'"
+	}
+	if len(v.EndsWith) > 0 {
+		return "End with '" + strings.Join(v.EndsWith, " ") + "'"
+	}
+	if len(v.Excludes) > 0 {
+		return "Not contain '" + strings.Join(v.Excludes, " ") + "'"
+	}
+	if len(v.ExcludesAll) > 0 {
+		return "Not contain any chars in '" + strings.Join(v.ExcludesAll, " ") + "'"
+	}
+	if len(v.ExcludesRune) > 0 {
+		return "Not contain '" + strings.Join(v.ExcludesRune, "") + "'"
+	}
+	if len(v.StartsNotWith) > 0 {
+		return "Not start with '" + strings.Join(v.StartsNotWith, " ") + "'"
+	}
+	if len(v.StartsWith) > 0 {
+		return "Start with '" + strings.Join(v.StartsWith, " ") + "'"
+	}
+
+	formatDescriptions := map[string]string{
+		"base64":                        "Base64 String",
+		"base64url":                     "Base64URL String",
+		"base64rawurl":                  "Base64RawURL String",
+		"bic":                           "Business Identifier Code (ISO 9362)",
+		"bcp47_language_tag":            "Language tag (BCP 47)",
+		"btc_addr":                      "Bitcoin Address",
+		"btc_addr_bech32":               "Bitcoin Bech32 Address (segwit)",
+		"credit_card":                   "Credit Card Number",
+		"mongodb":                       "MongoDB ObjectID",
+		"mongodb_connection_string":     "MongoDB Connection String",
+		"cron":                          "Cron",
+		"spicedb":                       "SpiceDb ObjectID/Permission/Type",
+		"datetime":                      "Datetime",
+		"e164":                          "e164 formatted phone number",
+		"email":                         "E-mail String",
+		"eth_addr":                      "Ethereum Address",
+		"hexadecimal":                   "Hexadecimal String",
+		"hexcolor":                      "Hexcolor String",
+		"hsl":                           "HSL String",
+		"hsla":                          "HSLA String",
+		"html":                          "HTML Tags",
+		"html_encoded":                  "HTML Encoded",
+		"isbn":                          "International Standard Book Number",
+		"isbn10":                        "International Standard Book Number 10",
+		"isbn13":                        "International Standard Book Number 13",
+		"issn":                          "International Standard Serial Number",
+		"iso3166_1_alpha2":              "Two-letter country code (ISO 3166-1 alpha-2)",
+		"iso3166_1_alpha3":              "Three-letter country code (ISO 3166-1 alpha-3)",
+		"iso3166_1_alpha_numeric":       "Numeric country code (ISO 3166-1 numeric)",
+		"iso3166_2":                     "Country subdivision code (ISO 3166-2)",
+		"iso4217":                       "Currency code (ISO 4217)",
+		"json":                          "JSON",
+		"jwt":                           "JSON Web Token (JWT)",
+		"latitude":                      "Latitude",
+		"longitude":                     "Longitude",
+		"luhn_checksum":                 "Luhn Algorithm Checksum (for strings and (u)int)",
+		"postcode_iso3166_alpha2":       "Postcode",
+		"postcode_iso3166_alpha2_field": "Postcode",
+		"rgb":                           "RGB String",
+		"rgba":                          "RGBA String",
+		"ssn":                           "Social Security Number SSN",
+		"timezone":                      "Timezone",
+		"uuid":                          "Universally Unique Identifier UUID",
+		"uuid3":                         "Universally Unique Identifier UUID v3",
+		"uuid3_rfc4122":                 "Universally Unique Identifier UUID v3 RFC4122",
+		"uuid4":                         "Universally Unique Identifier UUID v4",
+		"uuid4_rfc4122":                 "Universally Unique Identifier UUID v4 RFC4122",
+		"uuid5":                         "Universally Unique Identifier UUID v5",
+		"uuid5_rfc4122":                 "Universally Unique Identifier UUID v5 RFC4122",
+		"uuid_rfc4122":                  "Universally Unique Identifier UUID RFC4122",
+		"md4":                           "MD4 hash",
+		"md5":                           "MD5 hash",
+		"sha256":                        "SHA256 hash",
+		"sha384":                        "SHA384 hash",
+		"sha512":                        "SHA512 hash",
+		"ripemd128":                     "RIPEMD-128 hash",
+		"ripemd160":                     "RIPEMD-160 hash",
+		"tiger128":                      "TIGER128 hash",
+		"tiger160":                      "TIGER160 hash",
+		"tiger192":                      "TIGER192 hash",
+		"semver":                        "Semantic Versioning 2.0.0",
+		"ulid":                          "Universally Unique Lexicographically Sortable Identifier ULID",
+		"cve":                           "Common Vulnerabilities and Exposures Identifier (CVE id)",
+		"cidr":                          "Classless Inter-Domain Routing CIDR",
+		"cidrv4":                        "Classless Inter-Domain Routing CIDRv4",
+		"cidrv6":                        "Classless Inter-Domain Routing CIDRv6",
+		"data-uri":                      "Data URI",
+		"fqdn":                          "Fully Qualified Domain Name (FQDN)",
+		"hostname":                      "Hostname RFC 952",
+		"hostname-port":                 "HostPort",
+		"hostname-rfc1123":              "Hostname RFC 1123",
+		"ip":                            "Internet Protocol Address IP",
+		"ipv4":                          "Internet Protocol Address IPv4",
+		"ipv6":                          "Internet Protocol Address IPv6",
+		"mac":                           "Media Access Control Address MAC",
+		"tcp4-addr":                     "Transmission Control Protocol Address TCPv4",
+		"tcp6-addr":                     "Transmission Control Protocol Address TCPv6",
+		"tcp-addr":                      "Transmission Control Protocol Address TCP",
+		"udp4-addr":                     "User Datagram Protocol Address UDPv4",
+		"udp6-addr":                     "User Datagram Protocol Address UDPv6",
+		"udp-addr":                      "User Datagram Protocol Address UDP",
+		"unix-addr":                     "Unix domain socket end point Address",
+		"uri":                           "URI String",
+		"url":                           "URL String",
+		"http-url":                      "HTTP URL String",
+		"url-encoded":                   "URL Encoded",
+		"urn-rfc2141":                   "Urn RFC 2141 String",
+	}
+
+	return formatDescriptions[v.GetFormat()]
 }
 
 func ParseValidateTag(tag string) (*ValidateFlag, error) {
@@ -543,10 +687,27 @@ func ParseValidateTag(tag string) (*ValidateFlag, error) {
 	parts := strings.Split(tag, ",")
 	rawTag := make(map[string]any)
 
+	aliases := map[string]string{
+		"alphanum_unicode": "alphanumunicode",
+		"alpha_unicode":    "alphaunicode",
+		"contains_any":     "containsany",
+		"contains_rune":    "containsrune",
+		"ends_not_with":    "endsnotwith",
+		"ends_with":        "endswith",
+		"excludes_all":     "excludesall",
+		"excludes_rune":    "excludesrune",
+		"print_ascii":      "printascii",
+		"starts_not_with":  "startsnotwith",
+		"starts_with":      "startswith",
+	}
+
 	for i := range parts {
 		parts[i] = strings.TrimSpace(parts[i])
 		kv := strings.Split(parts[i], "=")
-		var key = kv[0]
+		key := kv[0]
+		if alias, ok := aliases[key]; ok {
+			key = alias
+		}
 		if len(kv) > 1 {
 			values := strings.Split(kv[1], " ")
 			if (key == "gt" || key == "gte" || key == "lt" || key == "lte" || key == "len" || key == "min" || key == "max") && len(values) == 1 {

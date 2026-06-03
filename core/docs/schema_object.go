@@ -120,7 +120,7 @@ type SchemaObject struct {
 	Deprecated  bool          `json:"deprecated,omitempty"`
 	Not         *SchemaObject `json:"not,omitempty"`
 
-	*ReferenceObject `json:",inline" validate:"required_without=type,exclude_with=Type"`
+	*ReferenceObject `json:",inline" validate:"required_without=Type,excluded_with=Type"`
 }
 
 type SchemaOrReference struct {
@@ -259,6 +259,41 @@ func SchemaFromType(t reflect.Type, parsingKey string, validateKey string, flag 
 		if flag != nil {
 			schema.String.Bind(*flag)
 			schema.Format = flag.GetFormat()
+			schema.Description = flag.GetDescription()
+			if flag.Boolean {
+				schema.Enum = []any{"true", "false"}
+				schema.String.Pattern = ""
+			}
+			if len(flag.EndsNotWith) > 0 {
+				schema.Not = &SchemaObject{
+					String: &String{Pattern: ".*" + strings.Join(flag.EndsNotWith, " ") + "$"},
+				}
+				schema.String.Pattern = ""
+			}
+			if len(flag.Excludes) > 0 {
+				schema.Not = &SchemaObject{
+					String: &String{Pattern: ".*" + strings.Join(flag.Excludes, " ") + ".*"},
+				}
+				schema.String.Pattern = ""
+			}
+			if len(flag.ExcludesAll) > 0 {
+				schema.Not = &SchemaObject{
+					String: &String{Pattern: ".*[" + strings.Join(flag.ExcludesAll, " ") + "].*"},
+				}
+				schema.String.Pattern = ""
+			}
+			if len(flag.ExcludesRune) > 0 {
+				schema.Not = &SchemaObject{
+					String: &String{Pattern: ".*" + strings.Join(flag.ExcludesRune, "") + ".*"},
+				}
+				schema.String.Pattern = ""
+			}
+			if len(flag.StartsNotWith) > 0 {
+				schema.Not = &SchemaObject{
+					String: &String{Pattern: "^" + strings.Join(flag.StartsNotWith, " ") + ".*"},
+				}
+				schema.String.Pattern = ""
+			}
 			if len(flag.EqIgnoreCase) > 0 {
 				schema.String.Pattern = "^(?i)(" + strings.Join(flag.EqIgnoreCase, "|") + ")$"
 			} else if len(flag.Eq) > 0 || len(flag.OneOf) > 0 {

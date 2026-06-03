@@ -11,6 +11,7 @@ import (
 // https://swagger.io/specification/#components-object
 type ComponentsObject struct {
 	Schemas         map[string]SchemaOrReference         `json:"schemas,omitempty"`
+	MediaTypes      map[string]MediaTypeOrReference      `json:"mediaTypes,omitempty"`
 	Responses       map[string]ResponseOrReference       `json:"responses,omitempty"`
 	Parameters      map[string]ParameterOrReference      `json:"parameters,omitempty"`
 	Examples        map[string]ExampleOrReference        `json:"examples,omitempty"`

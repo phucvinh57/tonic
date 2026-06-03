@@ -1,23 +1,22 @@
 package docs
 
-// TODO: Add Path Templating, Examples, Schema, Example, Reference Object
 // https://swagger.io/specification/#parameter-object
 type ParameterObject struct {
-	Name        string `json:"name,omitempty" validate:"required"`                     //TODO: verify if this is path item object
-	In          string `json:"in,omitempty" validate:"oneof=query header path cookie"` //TODO: verify if this is path item object
+	Name        string `json:"name,omitempty" validate:"required"`
+	In          string `json:"in,omitempty" validate:"required,oneof=query querystring header path cookie"`
 	Description string `json:"description,omitempty"`
-	Required    bool   `json:"required,omitempty" validate:"required"` //TODO: verify
+	Required    bool   `json:"required,omitempty"`
 	Deprecated  bool   `json:"deprecated,omitempty"`
 	AllowEmpty  bool   `json:"allowEmptyValue,omitempty"`
 
-	Style         string                        `json:"style,omitempty" validate:"oneof=matrix label form simple spaceDelimited pipeDelimited deepObject"`
+	Style         string                        `json:"style,omitempty" validate:"omitempty,oneof=matrix label form simple spaceDelimited pipeDelimited deepObject"`
 	Explode       bool                          `json:"explode,omitempty"`
 	AllowReserved bool                          `json:"allowReserved,omitempty"`
-	Schema        *SchemaOrReference                 `json:"schema,omitempty"`
-	Example       any                           `json:"example,omitempty"`
-	Examples      map[string]ExampleOrReference `json:"examples,omitempty"`
+	Schema        *SchemaOrReference            `json:"schema,omitempty" validate:"excluded_with=Content"`
+	Example       any                           `json:"example,omitempty" validate:"excluded_with=Examples Content"`
+	Examples      map[string]ExampleOrReference `json:"examples,omitempty" validate:"excluded_with=Example Content"`
 
-	Content map[string]MediaTypeObject `json:"content,omitempty"`
+	Content map[string]MediaTypeOrReference `json:"content,omitempty" validate:"excluded_with=Schema Example Examples"`
 }
 
 type ParameterOrReference struct {

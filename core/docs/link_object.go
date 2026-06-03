@@ -8,10 +8,9 @@ package docs
 // description	string	A description of the link. CommonMark syntax MAY be used for rich text representation.
 // server	Server Object	A server object to be used by the target operation.
 
-// TODO: TODO: Parametters
 type LinkObject struct {
-	OperationRef string         `json:"operationRef,omitempty"`
-	OperationId  string         `json:"operationId,omitempty"`
+	OperationRef string         `json:"operationRef,omitempty" validate:"excluded_with=OperationId"`
+	OperationId  string         `json:"operationId,omitempty" validate:"excluded_with=OperationRef"`
 	Parameters   map[string]any `json:"parameters,omitempty"`
 	RequestBody  any            `json:"requestBody,omitempty"`
 	Description  string         `json:"description,omitempty"`

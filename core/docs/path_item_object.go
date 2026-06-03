@@ -5,6 +5,7 @@ type PathItemObject struct {
 	Summary     string                 `json:"summary,omitempty"`
 	Description string                 `json:"description,omitempty"`
 	Get         *OperationObject       `json:"get,omitempty"`
+	Query       *OperationObject       `json:"query,omitempty"`
 	Put         *OperationObject       `json:"put,omitempty"`
 	Post        *OperationObject       `json:"post,omitempty"`
 	Delete      *OperationObject       `json:"delete,omitempty"`
