@@ -35,19 +35,19 @@ Will be generated to:
 
 ```json
 {
-    "id: {
+    "id": {
 	    "type": "integer"
     },
     "title": {
-        "type: "string",
+        "type": "string",
         "minLength": 4,
         "maxLength": 255
     },
     "content": {
-        "type: "string",
+        "type": "string",
         "minLength": 20
     }
 }
 ```
 
-Combine with route definitions, Tonic constructs an object to contain API documentation data in runtime, then hosts a Swagger UI using another library.
+Combine with route definitions, Tonic constructs an object to contain API documentation data in runtime then hosts a Swagger UI for it.
