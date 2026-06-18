@@ -140,7 +140,7 @@ func main() {
 		OpenAPI: docs.VERSION,
 		Info: docs.InfoObject{
 			Version: "1.0.0",
-			Title:   "Echo Example API",
+			Title:   "Gin Example API",
 			Contact: &docs.ContactObject{
 				Name:  "Author",
 				URL:   "https://github.com/phucvinh57",
