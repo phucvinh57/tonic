@@ -174,6 +174,8 @@ func main() {
 			Description: "Shows filtered collections with pagination and regional headers.",
 			Tags:        []string{"Orders"},
 		}))
+	// Default renderer is Swagger UI. Pass a core.UI to pick another, e.g.:
+	// schema.UIHandle(g, "/docs", core.Redoc)   // or core.Scalar, core.RapiDoc
 	schema.UIHandle(g, "/docs")
 
 	g.Run(":1234")
