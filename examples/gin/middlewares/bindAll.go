@@ -4,7 +4,17 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 )
+
+var validate = validator.New(validator.WithRequiredStructEnabled())
+
+func init() {
+	validate.SetTagName("binding")
+	// Disable Gin's default validation since we're doing it manually after binding all sources
+	binding.Validator = nil
+}
 
 func Bind[T any](c *gin.Context) {
 	var req T
@@ -32,6 +42,11 @@ func Bind[T any](c *gin.Context) {
 				return
 			}
 		}
+	}
+	// Validate once, after every source has been bound
+	if err := validate.Struct(&req); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "validation failed", "detail": err.Error()})
+		return
 	}
 	c.Set("data", req)
 	c.Next()
