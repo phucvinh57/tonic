@@ -7,6 +7,7 @@ import (
 	"echo_example/utils"
 
 	etonic "github.com/TickLabVN/tonic/adapters/echo"
+	"github.com/TickLabVN/tonic/core"
 	"github.com/TickLabVN/tonic/core/docs"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -179,7 +180,7 @@ func main() {
 	)
 	// Default renderer is Swagger UI. Pass a core.UI to pick another, e.g.:
 	// schema.UIHandle(e, "/docs", core.Redoc)   // or core.Scalar, core.RapiDoc
-	schema.UIHandle(e, "/docs")
+	schema.UIHandle(e, "/docs", core.Scalar)
 
 	e.Logger.Fatal(e.Start(":1323"))
 }

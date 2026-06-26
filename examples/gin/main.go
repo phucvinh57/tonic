@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	gtonic "github.com/TickLabVN/tonic/adapters/gin"
+	"github.com/TickLabVN/tonic/core"
 	"github.com/TickLabVN/tonic/core/docs"
 	"github.com/gin-gonic/gin"
 )
@@ -175,8 +176,8 @@ func main() {
 			Tags:        []string{"Orders"},
 		}))
 	// Default renderer is Swagger UI. Pass a core.UI to pick another, e.g.:
-	// schema.UIHandle(g, "/docs", core.Redoc)   // or core.Scalar, core.RapiDoc
-	schema.UIHandle(g, "/docs")
+	// schema.UIHandle(g, "/docs", core.ReDoc)   // or core.Scalar, core.RapiDoc
+	schema.UIHandle(g, "/docs", core.Scalar, core.SwaggerUI)
 
 	g.Run(":1234")
 }
