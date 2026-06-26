@@ -11,9 +11,13 @@ Following the Code-First approach, your docs evolve with your code. So I bring T
 Usage flow of [swaggo](https://github.com/swaggo) combo:
 
 ```mermaid
-flowchart TD
-    SwagInit[Initialize project via CLI] --> SwagGen[Generate swagger.json and swagger.yaml from code comments]
-    SwagGen --> SwagServe[Serve the docs from generated spec files]
+graph TD
+    A[Initialize project via CLI]
+    B[Generate Swagger files from code comments]
+    C[Serve generated spec files]
+
+    A --> B
+    B --> C
 ```
 
 Meanwhile, Tonic just reflects the code and generates the swagger documentation directly from the code itself.
@@ -49,3 +53,34 @@ Will be generated to:
 ```
 
 Combine with route definitions, Tonic constructs an object to contain API documentation data in runtime then hosts a Swagger UI for it.
+
+## Demo
+
+Tonic supports multiple UI providers for the generated OpenAPI document. See [examples](./examples) for more detail.
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="assets/redoc.png" alt="ReDoc demo" />
+      <br />
+      <strong>ReDoc</strong>
+    </td>
+    <td align="center">
+      <img src="assets/swagger-ui.png" alt="Swagger UI demo" />
+      <br />
+      <strong>Swagger UI</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="assets/scalar.png" alt="Scalar demo" />
+      <br />
+      <strong>Scalar</strong>
+    </td>
+    <td align="center">
+      <img src="assets/rapi-docs.png" alt="RapiDoc demo" />
+      <br />
+      <strong>RapiDoc</strong>
+    </td>
+  </tr>
+</table>
