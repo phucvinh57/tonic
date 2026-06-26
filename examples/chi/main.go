@@ -173,7 +173,7 @@ func main() {
 	})
 	// Default renderer is Swagger UI. Pass a core.UI to pick another, e.g.:
 	// schema.UIHandle(r, "/docs", core.ReDoc) // or core.SwaggerUI, core.RapiDoc
-	schema.UIHandle(r, "/docs", core.Scalar)
+	schema.UIHandle(r, "/docs", core.SwaggerUI)
 
 	log.Fatal(http.ListenAndServe(":1523", r))
 }
