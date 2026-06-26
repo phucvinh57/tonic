@@ -1,9 +1,13 @@
 go 1.26.4
 
 use (
+	./adapters/chi
 	./adapters/echo
+	./adapters/fiber
 	./adapters/gin
 	./core
+	./examples/chi
 	./examples/echo
+	./examples/fiber
 	./examples/gin
 )

@@ -1,0 +1,22 @@
+module chi_example
+
+go 1.26.4
+
+require (
+	github.com/TickLabVN/tonic/adapters/chi v0.0.0
+	github.com/TickLabVN/tonic/core v0.0.0-20260618162451-63208648c397
+	github.com/go-chi/chi/v5 v5.3.0
+	github.com/go-playground/validator/v10 v10.30.3
+)
+
+require (
+	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
+)
+
+replace github.com/TickLabVN/tonic/adapters/chi => ../../adapters/chi

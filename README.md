@@ -1,6 +1,6 @@
 # Tonic
 
-Tonic is an OpenAPI 3.2 doc generator for Go frameworks. Unlike tools like [Swaggo](https://github.com/swaggo/swag) that rely on code comments, Tonic uses `reflection` to inspect docs straight from your routes and struct binding tags, both request and response. It currently ships adapters for Echo and Gin.
+Tonic is an OpenAPI 3.2 doc generator for Go frameworks. Unlike tools like [Swaggo](https://github.com/swaggo/swag) that rely on code comments, Tonic uses `reflection` to inspect docs straight from your routes and struct binding tags, both request and response. It currently ships adapters for Chi, Echo, Fiber, and Gin.
 
 ## Why's Tonic?
 
