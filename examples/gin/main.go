@@ -30,6 +30,9 @@ type CreateUserRequest struct {
 	Role      string `json:"role" binding:"required,oneof=admin manager member"`
 	Invite    bool   `json:"invite"`
 	RequestID string `header:"x-request-id" binding:"required,uuid4"`
+	Avatar    []byte `json:"avatar" swaggertype:"string" format:"base64" example:"U3dhZ2dlciByb2Nrcw=="`
+	Age       int    `json:"age" example:"30"`
+	Website   string `json:"website" format:"uri" example:"https://example.com"`
 }
 
 type UpdateUserSettingsRequest struct {
@@ -137,18 +140,26 @@ func main() {
 	if err := g.SetTrustedProxies(nil); err != nil {
 		log.Fatalf("configure trusted proxies: %v", err)
 	}
-	schema := gtonic.New(&docs.OpenApi{
-		OpenAPI: docs.VERSION,
-		Info: docs.InfoObject{
-			Version: "1.0.0",
-			Title:   "Gin Example API",
-			Contact: &docs.ContactObject{
-				Name:  "Author",
-				URL:   "https://github.com/phucvinh57",
-				Email: "npvinh0507@gmail.com",
-			},
+	// core.Init builds the spec. To rename the schema-override tag keys
+	// (swaggertype/format/example) app-wide, pass core.WithTagConfig, e.g.:
+	//
+	//	spec := core.Init(core.WithTagConfig(docs.TagConfig{
+	//		SwaggerType: "swtype", Format: "fmt", Example: "eg",
+	//	}))
+	//
+	// then use those custom keys on struct fields. Empty fields keep the default
+	// key. This example keeps the defaults.
+	spec := core.Init()
+	spec.Info = docs.InfoObject{
+		Version: "1.0.0",
+		Title:   "Gin Example API",
+		Contact: &docs.ContactObject{
+			Name:  "Author",
+			URL:   "https://github.com/phucvinh57",
+			Email: "npvinh0507@gmail.com",
 		},
-	})
+	}
+	schema := gtonic.New(spec)
 	api := g.Group("/api/v1")
 	ug := api.Group("/users")
 	gtonic.For[GetUserRequest, UserDetailsResponse](schema).

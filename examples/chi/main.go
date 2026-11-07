@@ -32,6 +32,9 @@ type CreateUserRequest struct {
 	Role      string `json:"role" validate:"required,oneof=admin manager member"`
 	Invite    bool   `json:"invite"`
 	RequestID string `header:"x-request-id" validate:"required,uuid4"`
+	Avatar    []byte `json:"avatar" swaggertype:"string" format:"base64" example:"U3dhZ2dlciByb2Nrcw=="`
+	Age       int    `json:"age" example:"30"`
+	Website   string `json:"website" format:"uri" example:"https://example.com"`
 }
 
 type UpdateUserSettingsRequest struct {
@@ -136,13 +139,21 @@ func listUserOrders(w http.ResponseWriter, r *http.Request) {
 func main() {
 	r := chi.NewRouter()
 
-	schema := ctonic.New(&docs.OpenApi{
-		OpenAPI: docs.VERSION,
-		Info: docs.InfoObject{
-			Version: "1.0.0",
-			Title:   "Chi Example API",
-		},
-	})
+	// core.Init builds the spec. To rename the schema-override tag keys
+	// (swaggertype/format/example) app-wide, pass core.WithTagConfig, e.g.:
+	//
+	//	spec := core.Init(core.WithTagConfig(docs.TagConfig{
+	//		SwaggerType: "swtype", Format: "fmt", Example: "eg",
+	//	}))
+	//
+	// then use those custom keys on struct fields. Empty fields keep the default
+	// key. This example keeps the defaults.
+	spec := core.Init()
+	spec.Info = docs.InfoObject{
+		Version: "1.0.0",
+		Title:   "Chi Example API",
+	}
+	schema := ctonic.New(spec)
 
 	api := schema.Wrap(r)
 	api.Route("/api/v1/users", func(users chi.Router) {

@@ -10,6 +10,8 @@ import (
 
 // https://swagger.io/specification/#components-object
 type ComponentsObject struct {
+	// It is not part of the OpenAPI output.
+	TagConfig       TagConfig                            `json:"-"`
 	Schemas         map[string]SchemaOrReference         `json:"schemas,omitempty"`
 	MediaTypes      map[string]MediaTypeOrReference      `json:"mediaTypes,omitempty"`
 	Responses       map[string]ResponseOrReference       `json:"responses,omitempty"`
@@ -36,7 +38,7 @@ func (c *ComponentsObject) AddSchema(t reflect.Type, parsingKey string, bindingK
 		return schema.SchemaObject, nil
 	}
 
-	schema, err := SchemaFromType(t, parsingKey, bindingKey, nil)
+	schema, err := SchemaFromType(t, parsingKey, bindingKey, nil, c.TagConfig.withDefaults())
 	if err != nil {
 		return nil, fmt.Errorf("create schema from type: %w", err)
 	}
